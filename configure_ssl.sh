@@ -2,7 +2,7 @@
 
 IP="40.70.78.214"
 DNSNAME="dev-mednax-kubernetes"
-CERT_PROVIDER=letsencrypt-staging # letsencrypt-prod
+CERT_PROVIDER="letsencrypt-prod" # letsencrypt-staging
 
 # Get the resource-id of the public ip
 PUBLICIPID=$(az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[id]" --output tsv)
@@ -16,7 +16,7 @@ helm install stable/cert-manager \
     --set ingressShim.defaultIssuerName=$CERT_PROVIDER \
     --set ingressShim.defaultIssuerKind=ClusterIssuer
 
-if [ $CERT_PROVIDER=letsencrypt-staging ] ; then
+if [ $CERT_PROVIDER = "letsencrypt-staging" ] ; then
   echo "APPLYING LETSENCRYPT STAGING"
   kubectl apply -f cluster-issuer-staging.yaml
 else
