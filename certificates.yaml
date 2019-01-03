@@ -13,5 +13,5 @@ spec:
       domains:
       - dev-mednax-kubernetes.eastus2.cloudapp.azure.com
   issuerRef:
-    name: letsencrypt-staging
+    name: letsencrypt-prod
     kind: ClusterIssuer
