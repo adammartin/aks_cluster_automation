@@ -145,5 +145,7 @@ export FQDN="$(set_dns_name $DNSNAME | jsonValue fqdn)"
 export CERTIFICATE_PROVIDER=$CERT_PROVIDER
 configure_ssl $CERT_PROVIDER
 create_certificate_yaml
+
+echo "APPLYING LETSENCRYPT AS CERT AUTHORITY"
 kubectl apply -f certificates.yaml
 rm -f certificates.yaml
