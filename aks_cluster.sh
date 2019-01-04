@@ -9,7 +9,7 @@ CLUSTER_NAME=azshrappaks02d
 LOCATION=eastus
 NODE_COUNT=2
 CERT_PROVIDER="letsencrypt-prod" # letsencrypt-staging
-DELETE_CUR_CREDENTIALS="false"
+DELETE_CUR_CREDENTIALS="true"
 
 
 function get_ip()
@@ -66,6 +66,69 @@ function install_helm()
 }
 
 
+function install_nginx_ingress()
+{
+  echo "INSTALLING nginx-ingress"
+  while [ "$(install_ingress)" = "TILLER NOT READY" ]
+  do
+    echo "WAITING FOR INGRESS INSTALLATION"
+    ((ing_count++)) && ((ing_count==12)) && ing_count=0 && break # STOP AFTER 2 MINUTES
+    sleep 10
+  done
+}
+
+
+function set_dns_name()
+{
+  local L_DNSNAME=$1
+  while [ "$(valid_ip)" != "VALID" ]
+  do
+    echo "WAITING FOR IP: $(get_ip)"
+    ((ip_count++)) && ((ip_count==18)) && ip_count=0 && break # STOP AFTER 3 MINUTES
+    sleep 10
+  done
+
+  IP="$(get_ip)"
+  PUBLICIPID=$(az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[id]" --output tsv)
+
+  echo "UPDATE PUBLIC IP ADDRESS WITH DNS NAME"
+  az network public-ip update --ids $PUBLICIPID --dns-name $L_DNSNAME
+}
+
+
+function configure_ssl()
+{
+  local L_CERT_PROVIDER=$1
+  echo "INSTALLING LETSENCRYPT CERT MANAGEMENT"
+  helm install stable/cert-manager \
+      --namespace kube-system \
+      --set ingressShim.defaultIssuerName=$L_CERT_PROVIDER \
+      --set ingressShim.defaultIssuerKind=ClusterIssuer
+
+  if [ $L_CERT_PROVIDER = "letsencrypt-staging" ] ; then
+    echo "APPLYING LETSENCRYPT STAGING"
+    kubectl apply -f cluster-issuer-staging.yaml
+  else
+    echo "APPLYING LETSENCRYPT PROD"
+    kubectl apply -f cluster-issuer-prod.yaml
+  fi
+}
+
+
+function jsonValue()
+{
+  KEY=$1
+  num=$2
+  awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'$KEY'\042/){print $(i+1)}}}' | tr -d '"' | sed -n ${num}p
+}
+
+
+function create_certificate_yaml()
+{
+  source /dev/stdin <<<"$(echo 'cat <<EOF >certificates.yaml'; cat certificates_template.yaml; echo EOF;)"
+}
+
+
 az account set -s $SUBSCRIPTION
 echo "EXECUTING SCRIPTS FOR THE FOLLOWING SUBSCRIPTIONS:"
 az account show
@@ -77,41 +140,10 @@ az aks create --subscription $SUBSCRIPTION --resource-group $RESOURCE_GROUP --na
 
 retrieve_credentials $DELETE_CUR_CREDENTIALS $RESOURCE_GROUP $CLUSTER_NAME
 install_helm
-
-#echo "PAUSING 30 SECONDS FOR AZURE TO SPIN UP"
-#sleep 30
-
-echo "INSTALLING nginx-ingress"
-while [ "$(install_ingress)" = "TILLER NOT READY" ]
-do
-  echo "WAITING FOR INGRESS INSTALLATION"
-  ((ing_count++)) && ((ing_count==12)) && ing_count=0 && break # STOP AFTER 2 MINUTES
-  sleep 10
-done
-
-while [ "$(valid_ip)" != "VALID" ]
-do
-  echo "WAITING FOR IP: $(get_ip)"
-  ((ip_count++)) && ((ip_count==18)) && ip_count=0 && break # STOP AFTER 3 MINUTES
-  sleep 10
-done
-
-IP="$(get_ip)"
-PUBLICIPID=$(az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[id]" --output tsv)
-
-echo "UPDATE PUBLIC IP ADDRESS WITH DNS NAME"
-az network public-ip update --ids $PUBLICIPID --dns-name $DNSNAME
-
-echo "INSTALLING LETSENCRYPT CERT MANAGEMENT"
-helm install stable/cert-manager \
-    --namespace kube-system \
-    --set ingressShim.defaultIssuerName=$CERT_PROVIDER \
-    --set ingressShim.defaultIssuerKind=ClusterIssuer
-
-if [ $CERT_PROVIDER = "letsencrypt-staging" ] ; then
-  echo "APPLYING LETSENCRYPT STAGING"
-  kubectl apply -f cluster-issuer-staging.yaml
-else
-  echo "APPLYING LETSENCRYPT PROD"
-  kubectl apply -f cluster-issuer-prod.yaml
-fi
+install_nginx_ingress
+export FQDN="$(set_dns_name $DNSNAME | jsonValue fqdn)"
+export CERTIFICATE_PROVIDER=$CERT_PROVIDER
+configure_ssl $CERT_PROVIDER
+create_certificate_yaml
+kubectl apply -f certificates.yaml
+rm -f certificates.yaml
