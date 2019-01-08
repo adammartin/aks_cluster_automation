@@ -91,7 +91,7 @@ function set_dns_name()
   IP="$(get_ip)"
   PUBLICIPID=$(az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[id]" --output tsv)
 
-  echo "UPDATE PUBLIC IP ADDRESS WITH DNS NAME"
+  echo "UPDATE PUBLIC IP [$PUBLICIPID] ADDRESS WITH DNS NAME [$L_DNSNAME]"
   az network public-ip update --ids $PUBLICIPID --dns-name $L_DNSNAME
 }
 
