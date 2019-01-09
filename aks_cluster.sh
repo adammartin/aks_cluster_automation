@@ -1,16 +1,37 @@
 #!/usr/bin/env bash
 set -e
 
-# VARIABLES TO EXTRACT
-SUBSCRIPTION=ApplicationDevelopment_DEV
-RESOURCE_GROUP=SharedApplicationCluster2
-DNSNAME="dev2-mednax-kubernetes"
-CLUSTER_NAME=azshrappaks02d
-LOCATION=eastus
-NODE_COUNT=2
-CERT_PROVIDER="letsencrypt-prod" # letsencrypt-staging
-DELETE_CUR_CREDENTIALS="true"
+OPTS=`getopt -o hsrdc: --long help,subscription,resource_group,dnsname,cluster_name: -n 'parse-options' -- "$@"`
 
+if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
+
+USAGE=$(cat <<-EOM
+  -h --help: Prints available options for the system
+  -s --subscription: Subcription to create or use
+  -r --resource_group: Resource Group to create or use
+  -d --dnsname: DNS Name to prepend to the azure c-name
+  -c --cluster_name: Name to apply to the AKS Cluster being created
+  -l --location: Azure Region to host the application in
+  -n --node_count: Number of nodes to create
+  -p --cert_provider: Select which lets encrypt provider to use [letsencrypt-prod|letsencrypt-staging]
+  -u --delete_creds: Delete current credentials [true|false]
+EOM)
+
+while true; do
+  case "$1" in
+    -h | --help) echo "$USAGE"; exit 0 ;;
+    -s | --subscription) SUBSCRIPTION=$2; shift 2 ;;
+    -r | --resource_group) RESOURCE_GROUP=$2; shift 2 ;;
+    -d | --dnsname) DNSNAME=$2; shift 2 ;;
+    -c | --cluster_name) CLUSTER_NAME=$2; shift 2 ;;
+    -l | --location) LOCATION=$2; shift 2 ;;
+    -n | --node_count) NODE_COUNT=$2; shift 2 ;;
+    -p | --cert_provider) CERT_PROVIDER=$2; shift 2 ;;
+    -u | --delete_creds) DELETE_CUR_CREDENTIALS=$2; shift 2 ;; # Should change this to just true and false
+    --) shift ; break ;;
+    * ) break ;;
+  esac
+done
 
 function get_ip()
 {
