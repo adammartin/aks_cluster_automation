@@ -7,26 +7,36 @@ if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
 
 USAGE=$(cat <<-EOM
   -h --help: Prints available options for the system
-  -s --subscription: Subcription to create or use
-  -r --resource_group: Resource Group to create or use
-  -d --dnsname: DNS Name to prepend to the azure c-name
+  -a --reg_user: registry user account for authentication
+  -b --reg_pw: registry user account password for authentication
   -c --cluster_name: Name to apply to the AKS Cluster being created
+  -d --dnsname: DNS Name to prepend to the azure c-name
+  -e --email: Email to use for AKS to ACR credentials.
+  -g --registry_name: Name of registry in ACR [REGISTRY_NAME].azurecr.io
+  -k --secret_name: kubernetes secret name to use when pulling containers into AKS
   -l --location: Azure Region to host the application in
   -n --node_count: Number of nodes to create
   -p --cert_provider: Select which lets encrypt provider to use [letsencrypt-prod|letsencrypt-staging]
+  -r --resource_group: Resource Group to create or use
+  -s --subscription: Subcription to create or use
   -u --delete_creds: Delete current credentials [true|false]
 EOM)
 
 while true; do
   case "$1" in
     -h | --help) echo "$USAGE"; exit 0 ;;
-    -s | --subscription) SUBSCRIPTION=$2; shift 2 ;;
-    -r | --resource_group) RESOURCE_GROUP=$2; shift 2 ;;
-    -d | --dnsname) DNSNAME=$2; shift 2 ;;
+    -a | --reg_user) REG_USER=$2; shift 2 ;;
+    -b | --reg_pw) REG_PW=$2; shift 2 ;;
     -c | --cluster_name) CLUSTER_NAME=$2; shift 2 ;;
+    -d | --dnsname) DNSNAME=$2; shift 2 ;;
+    -e | --email) EMAIL=$2; shift 2 ;;
+    -g | --registry_name) REGISTRY_NAME=$2; shift 2 ;;
+    -k | --secret_name) SECRET_NAME=$2; shift 2 ;;
     -l | --location) LOCATION=$2; shift 2 ;;
     -n | --node_count) NODE_COUNT=$2; shift 2 ;;
     -p | --cert_provider) CERT_PROVIDER=$2; shift 2 ;;
+    -r | --resource_group) RESOURCE_GROUP=$2; shift 2 ;;
+    -s | --subscription) SUBSCRIPTION=$2; shift 2 ;;
     -u | --delete_creds) DELETE_CUR_CREDENTIALS=$2; shift 2 ;; # Should change this to just true and false
     --) shift ; break ;;
     * ) break ;;
@@ -170,3 +180,7 @@ create_certificate_yaml
 echo "APPLYING LETSENCRYPT AS CERT AUTHORITY"
 kubectl apply -f certificates.yaml
 rm -f certificates.yaml
+
+
+echo "CREATING ACR ACCESS"
+kubectl create secret docker-registry $SECRET_NAME --docker-server="$REGISTRY_NAME.azurecr.io" --docker-username=$REG_USER --docker-password=$REG_PW --docker-email=$EMAIL
