@@ -131,7 +131,11 @@ function configure_ssl()
 {
   local L_CERT_PROVIDER=$1
   echo "INSTALLING LETSENCRYPT CERT MANAGEMENT"
+  kubectl apply \
+    -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.6/deploy/manifests/00-crds.yaml
+
   helm install stable/cert-manager \
+      --name cert-manager \
       --namespace kube-system \
       --set ingressShim.defaultIssuerName=$L_CERT_PROVIDER \
       --set ingressShim.defaultIssuerKind=ClusterIssuer
