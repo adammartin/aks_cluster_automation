@@ -138,7 +138,8 @@ function configure_ssl()
       --name cert-manager \
       --namespace kube-system \
       --set ingressShim.defaultIssuerName=$L_CERT_PROVIDER \
-      --set ingressShim.defaultIssuerKind=ClusterIssuer
+      --set ingressShim.defaultIssuerKind=ClusterIssuer \
+      --set webhook.enabled=false
 
   if [ $L_CERT_PROVIDER = "letsencrypt-staging" ] ; then
     echo "APPLYING LETSENCRYPT STAGING"
